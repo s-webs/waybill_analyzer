@@ -1,0 +1,11 @@
+services:
+  waybill-analyzer-api:
+    build: .
+    container_name: waybill-analyzer-api
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
