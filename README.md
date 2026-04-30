@@ -38,6 +38,7 @@ uvicorn api_server:app --host 0.0.0.0 --port 8001
 API будет доступен на `http://localhost:8001`:
 - `GET /health`
 - `POST /analyze` (multipart `file`)
+- `GET /ui` (небольшой web-интерфейс для ручной загрузки скриншотов/накладных)
 
 ---
 
@@ -123,3 +124,4 @@ docker compose down
 
 - Если модель возвращает JSON в markdown-блоках, сервис очищает ответ автоматически.
 - Для интеграции и примеров payload/response см. `API_CONTRACT.md`.
+- UI на `/ui` использует тот же `POST /analyze`, поэтому API-контракт для приложений не меняется.

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Waybill Analyzer UI</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f3f5f8;
+        color: #0f172a;
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 16px rgba(15, 23, 42, 0.08);
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      .hint {
+        margin: 0;
+        color: #475569;
+        font-size: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+        color: #334155;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      input[type="file"] {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 14px;
+        background: #fff;
+      }
+
+      .actions {
+        margin-top: 14px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      button {
+        border: 0;
+        background: #2563eb;
+        color: #fff;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .status {
+        font-size: 14px;
+        color: #334155;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 16px;
+      }
+
+      .preview {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px;
+        border-radius: 10px;
+        background: #0b1220;
+        color: #dbeafe;
+        overflow: auto;
+        min-height: 240px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .result-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+
+      .muted {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .summary-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+      }
+
+      .summary-key {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+
+      .summary-val {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .items {
+        display: grid;
+        gap: 10px;
+      }
+
+      .item-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px;
+        background: #fff;
+      }
+
+      .item-name {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .item-meta {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        font-size: 13px;
+      }
+
+      .calc-note {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+
+      details {
+        margin-top: 12px;
+      }
+
+      summary {
+        cursor: pointer;
+        color: #1d4ed8;
+        user-select: none;
+        margin-bottom: 10px;
+      }
+
+      @media (max-width: 860px) {
+        .grid,
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .summary-grid,
+        .item-meta {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>Waybill Analyzer UI</h1>
+        <p class="hint">
+          Загрузите скриншот маркетплейса или накладной. UI отправляет файл в существующий endpoint
+          <code>POST /analyze</code>.
+        </p>
+      </div>
+
+      <div class="card">
+        <form id="analyzeForm">
+          <div class="grid">
+            <div>
+              <label for="file">Изображение (jpg/png/webp)</label>
+              <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+            </div>
+            <div>
+              <label for="provider">Provider</label>
+              <input id="provider" name="provider" type="text" value="openai" />
+            </div>
+            <div>
+              <label for="model">Model</label>
+              <input id="model" name="model" type="text" value="gpt-4.1-mini" />
+            </div>
+            <div>
+              <label for="temperature">Temperature</label>
+              <input id="temperature" name="temperature" type="number" step="0.01" value="0.05" />
+            </div>
+            <div>
+              <label for="max_tokens">Max tokens</label>
+              <input id="max_tokens" name="max_tokens" type="number" step="1" value="3000" />
+            </div>
+          </div>
+          <div class="actions">
+            <button id="submitBtn" type="submit">Анализировать</button>
+            <span class="status" id="status">Готово</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="card split">
+        <div>
+          <img id="preview" class="preview" alt="preview" />
+        </div>
+        <div>
+          <div class="result-head">
+            <strong>Результат анализа</strong>
+            <span class="muted" id="resultState">Пока нет данных</span>
+          </div>
+          <div class="summary-grid" id="summaryGrid"></div>
+          <div class="items" id="itemsList"></div>
+          <details>
+            <summary>Показать сырой JSON</summary>
+            <pre id="output">{ "ok": null }</pre>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("analyzeForm");
+      const output = document.getElementById("output");
+      const statusEl = document.getElementById("status");
+      const submitBtn = document.getElementById("submitBtn");
+      const fileInput = document.getElementById("file");
+      const preview = document.getElementById("preview");
+      const summaryGrid = document.getElementById("summaryGrid");
+      const itemsList = document.getElementById("itemsList");
+      const resultState = document.getElementById("resultState");
+
+      const fmt = (value) => (value === null || value === undefined || value === "" ? "—" : String(value));
+      const fmtMoney = (value, currency) => {
+        if (value === null || value === undefined || value === "") return "—";
+        return `${value} ${currency || ""}`.trim();
+      };
+      const escapeHtml = (value) =>
+        String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+
+      function renderSummary(payload) {
+        const result = payload && payload.result ? payload.result : null;
+        if (!payload || !payload.ok || !result) {
+          summaryGrid.innerHTML = "";
+          itemsList.innerHTML = "";
+          resultState.textContent = payload && payload.error ? `Ошибка: ${payload.error}` : "Нет успешного результата";
+          return;
+        }
+
+        resultState.textContent = "Успешно";
+        const currency = result.currency || "KZT";
+        const totals = result.totals || {};
+        const rows = [
+          ["Поставщик", fmt(result.supplier)],
+          ["Тип документа", fmt(result.document_type)],
+          ["Количество позиций", fmt(totals.items_count)],
+          ["Общее кол-во", fmt(totals.total_quantity)],
+          ["Общая сумма", fmtMoney(totals.total_amount, currency)],
+        ];
+
+        summaryGrid.innerHTML = rows
+          .map(
+            ([key, val]) => `
+              <div class="summary-item">
+                <div class="summary-key">${key}</div>
+                <div class="summary-val">${val}</div>
+              </div>
+            `
+          )
+          .join("");
+
+        const items = Array.isArray(result.items) ? result.items : [];
+        if (!items.length) {
+          itemsList.innerHTML = `<div class="muted">Товары не найдены.</div>`;
+          return;
+        }
+
+        itemsList.innerHTML = items
+          .map((item, idx) => {
+            const quantity = fmt(item.quantity);
+            const unit = item.unit ? ` ${item.unit}` : "";
+            const notes = typeof item.notes === "string" ? item.notes : "";
+            const quantityFormulaMatch = notes.match(/quantity\s*=\s*([0-9xX*()\s.+/-]+)/i);
+            const quantityFormula = quantityFormulaMatch ? quantityFormulaMatch[1].trim() : "";
+            const formulaBlock = quantityFormula
+              ? `<div class="calc-note">Расчет количества: ${escapeHtml(quantityFormula)}</div>`
+              : "";
+            return `
+              <div class="item-card">
+                <div class="item-name">${idx + 1}. ${fmt(item.name)}</div>
+                <div class="item-meta">
+                  <div><strong>Поставщик:</strong> ${fmt(result.supplier)}</div>
+                  <div><strong>Кол-во:</strong> ${quantity}${unit}</div>
+                  <div><strong>Цена:</strong> ${fmtMoney(item.price, currency)}</div>
+                  <div><strong>Сумма:</strong> ${fmtMoney(item.amount, currency)}</div>
+                  <div><strong>Штрихкод:</strong> ${fmt(item.barcode)}</div>
+                  <div><strong>Уверенность:</strong> ${fmt(item.confidence)}</div>
+                </div>
+                ${formulaBlock}
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          preview.removeAttribute("src");
+          return;
+        }
+        preview.src = URL.createObjectURL(file);
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          statusEl.textContent = "Выберите файл";
+          return;
+        }
+
+        const data = new FormData();
+        data.append("file", file);
+        data.append("provider", document.getElementById("provider").value || "openai");
+        data.append("model", document.getElementById("model").value || "gpt-4.1-mini");
+        data.append("temperature", document.getElementById("temperature").value || "0.05");
+        data.append("max_tokens", document.getElementById("max_tokens").value || "3000");
+
+        submitBtn.disabled = true;
+        statusEl.textContent = "Отправка...";
+        output.textContent = "{\n  \"loading\": true\n}";
+        resultState.textContent = "Загрузка...";
+        summaryGrid.innerHTML = "";
+        itemsList.innerHTML = "";
+
+        try {
+          const response = await fetch("/analyze", {
+            method: "POST",
+            body: data,
+          });
+          const text = await response.text();
+
+          let payload;
+          try {
+            payload = JSON.parse(text);
+          } catch (_error) {
+            payload = { ok: false, error: "Invalid JSON response", raw: text };
+          }
+
+          output.textContent = JSON.stringify(payload, null, 2);
+          renderSummary(payload);
+          statusEl.textContent = response.ok ? "Готово" : `Ошибка HTTP ${response.status}`;
+        } catch (error) {
+          const errorPayload = {
+            ok: false,
+            error: "Network error",
+            details: String(error),
+          };
+          output.textContent = JSON.stringify(errorPayload, null, 2);
+          renderSummary(errorPayload);
+          statusEl.textContent = "Сетевая ошибка";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

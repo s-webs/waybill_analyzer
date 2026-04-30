@@ -3,6 +3,94 @@ Post-processing validation for AI invoice results.
 """
 from __future__ import annotations
 
+import re
+
+
+_PACK_UNITS_RE = re.compile(
+    r"(?<!\d)(\d+(?:[.,]\d+)?)\s*(?:шт(?:\.|ук|уки|ука)?|pcs?|pieces?)(?:\b|(?=\s|$|[.,;:]))",
+    re.IGNORECASE,
+)
+
+
+def _to_float(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.strip().replace(",", ".")
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+
+def _format_number(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return str(round(value, 4))
+
+
+def _extract_package_size(text: str | None) -> float | None:
+    if not text:
+        return None
+    matches = _PACK_UNITS_RE.findall(text)
+    if not matches:
+        return None
+    candidates = []
+    for match in matches:
+        size = _to_float(match)
+        if size and size > 1:
+            candidates.append(size)
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def _apply_marketplace_quantity_multiplier(item: dict, fallback_package_size: float | None = None) -> None:
+    """
+    If quantity is the number of positions (e.g. 3) and the name contains
+    "30 штук", convert quantity to total units (3 * 30 = 90).
+    """
+    quantity = _to_float(item.get("quantity"))
+    name = (item.get("name") or "").strip()
+    if quantity is None or quantity <= 0 or not name:
+        return
+
+    package_size = _extract_package_size(name) or fallback_package_size
+    if not package_size:
+        return
+
+    total_units = quantity * package_size
+    item["quantity"] = int(total_units) if total_units.is_integer() else round(total_units, 4)
+
+    # If price was recognized as "per package", normalize to "per 1 unit".
+    # Example: 658 KZT for 6 pcs => 109.6667 KZT per unit.
+    price = _to_float(item.get("price"))
+    if price is not None and price > 0:
+        unit_price = price / package_size
+        item["price"] = round(unit_price, 4)
+
+    # If amount is present and we have final quantity, keep price consistent with total amount.
+    amount = _to_float(item.get("amount"))
+    final_qty = _to_float(item.get("quantity"))
+    if amount is not None and final_qty is not None and final_qty > 0:
+        derived_unit_price = amount / final_qty
+        if item.get("price") is None:
+            item["price"] = round(derived_unit_price, 4)
+
+    existing_notes = item.get("notes")
+    formula = f"quantity={_format_number(quantity)}*{_format_number(package_size)}"
+    if existing_notes:
+        if "quantity=" not in str(existing_notes):
+            item["notes"] = f"{existing_notes}; {formula}"
+    else:
+        item["notes"] = formula
+
+    if item.get("confidence") == "high":
+        item["confidence"] = "medium"
+
 
 def validate_invoice_result(result: dict) -> dict:
     """
@@ -18,6 +106,25 @@ def validate_invoice_result(result: dict) -> dict:
     warnings: list[str] = validation.get("warnings") or []
 
     items: list[dict] = result.get("items") or []
+    raw_observations = result.get("raw_text_observations") or []
+    fallback_package_size = None
+    if len(items) == 1 and raw_observations:
+        fallback_package_size = _extract_package_size(" ".join(str(x) for x in raw_observations))
+
+    for item in items:
+        _apply_marketplace_quantity_multiplier(item, fallback_package_size=fallback_package_size)
+
+    # Fill missing unit price for regular items:
+    # if amount and quantity are known, derive price per one unit.
+    for item in items:
+        price = _to_float(item.get("price"))
+        if price is not None and price > 0:
+            continue
+        amount = _to_float(item.get("amount"))
+        quantity = _to_float(item.get("quantity"))
+        if amount is None or quantity is None or quantity <= 0:
+            continue
+        item["price"] = round(amount / quantity, 4)
 
     # --- 1. Check items presence ----------------------------------------
     if not items:
@@ -98,6 +205,15 @@ def validate_invoice_result(result: dict) -> dict:
     totals = result.setdefault("totals", {})
     if not totals.get("items_count"):
         totals["items_count"] = total_count
+
+    quantity_values = []
+    for item in items:
+        qty = _to_float(item.get("quantity"))
+        if qty is not None:
+            quantity_values.append(qty)
+    if quantity_values:
+        total_quantity = round(sum(quantity_values), 4)
+        totals["total_quantity"] = int(total_quantity) if total_quantity.is_integer() else total_quantity
 
     validation["warnings"] = warnings
     result["validation"] = validation

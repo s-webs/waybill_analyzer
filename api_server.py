@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from ai_clients import analyze_invoice_with_ai
@@ -17,6 +19,10 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 app = FastAPI(title="alfoods_waybill_analyzer", version="1.0.0")
+WEB_DIR = Path(__file__).parent / "web"
+
+if WEB_DIR.exists():
+    app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
 
 
 class AnalyzeResponse(BaseModel):
@@ -30,6 +36,14 @@ class AnalyzeResponse(BaseModel):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/ui")
+def ui() -> FileResponse:
+    index_path = WEB_DIR / "index.html"
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="UI is not available.")
+    return FileResponse(index_path)
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
